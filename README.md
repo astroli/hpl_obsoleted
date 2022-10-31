@@ -20,7 +20,7 @@ qemu-system-riscv64 \\
 
 '''
 
-## ~~ gcc 12 ~~
+## ~~gcc 12~~
 '''
 
 git clone https://github.com/riscv/riscv-gnu-toolchain -b rvv-next
@@ -42,7 +42,7 @@ make linux
 
 wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.4.tar.gz
 
-~~ export PATH=/opt/riscv/bin:$PATH ~~
+~~export PATH=/opt/riscv/bin:$PATH~~
 
 mkdir build
 
@@ -59,7 +59,7 @@ make install
 
 git clone https://github.com/xianyi/OpenBLAS.git
 
-~~ export PATH=/opt/riscv/bin:$PATH ~~
+~~export PATH=/opt/riscv/bin:$PATH~~
 
 make TARGET=RISCV64_GENERIC
 
