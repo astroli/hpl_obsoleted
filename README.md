@@ -19,6 +19,22 @@ qemu-system-riscv64 \\
 '''
 
 ## gcc 12
+'''
+
+git clone https://github.com/riscv/riscv-gnu-toolchain -b rvv-next
+
+cd riscv-gcc
+
+git checkout -b riscv-gcc-rvv-next
+
+git pull
+
+./configure --prefix=/opt/riscv
+
+make linux
+
+'''
+
 ##  OpenMPI 4.1.4
 '''
 
