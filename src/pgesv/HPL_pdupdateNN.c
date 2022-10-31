@@ -49,6 +49,201 @@
  */
 #include "hpl.h"
 
+#ifdef __x86_64
+#include <immintrin.h>
+#endif
+#ifdef __riscv
+#include <riscv_vector.h>
+#endif
+
+//#define HPL_CALL_MXU
+
+#ifdef HPL_CALL_MXU
+//#define mxu_dgemm mxu_dgemm_knm
+
+
+
+
+
+
+
+
+
+//#define mxu_dgemm mxu_dgemm_mkn
+//#define mxu_dgemm mxu_dgemm_mkn_fma_avx256
+#define mxu_dgemm mxu_dgemm_mkn_fma_rvv
+
+
+static void mxu_dgemm_mkn
+(
+   const int                  M,
+   const int                  N,
+   const int                  K,
+   const double               ALPHA,
+   const double               * A,
+   const int                  LDA,
+   const double               * B,
+   const int                  LDB,
+   const double               BETA,
+   double                     * C,
+   const int                  LDC
+)
+{
+   register double            t0;
+   int                        i, iail, iblj, icij, j, jal, jbj, jcj, l, x, y;
+
+   for( j = 0, jbj = 0, jcj  = 0; j < N; j++, jbj += LDB, jcj += LDC )
+   {
+      HPL_dscal( M, BETA, C+jcj, 1 );
+      for( l = 0, jal = 0, iblj = jbj; l < K; l++, jal += LDA, iblj += 1 )
+      {
+         t0 = ALPHA * B[iblj];
+         for( i = 0, iail = jal, icij = jcj; i < M; i++, iail += 1, icij += 1 )
+         { C[icij] += A[iail] * t0; }
+      }
+   }
+}
+
+#ifdef __x86_64
+static void mxu_dgemm_mkn_fma_avx256
+(
+   const int                  M,
+   const int                  N,
+   const int                  K,
+   const double               ALPHA,
+   const double               * A,
+   const int                  LDA,
+   const double               * B,
+   const int                  LDB,
+   const double               BETA,
+   double                     * C,
+   const int                  LDC
+)
+{
+   double                     t0;
+   int                        i, iail, iblj, icij, j, jal, jbj, jcj, l, x, y, t;
+   struct timeval             tp;
+
+   for( j = 0, jbj = 0, jcj  = 0; j < N; j++, jbj += LDB, jcj += LDC )
+   {
+      HPL_dscal( M, BETA, C+jcj, 1 );
+      for( l = 0, jal = 0, iblj = jbj; l < K; l++, jal += LDA, iblj += 1 )
+      {
+         t0 = ALPHA * B[iblj];
+
+         __m256d val2 = _mm256_broadcast_sd(&t0);
+
+         for( i = 0, iail = jal, icij = jcj; i < M; i += 4, iail += 4, icij += 4 )
+         {
+            __m256d val1 = _mm256_load_pd(&A[iail]);
+	    __m256d res = _mm256_load_pd(&C[icij]);
+	    res = _mm256_fmadd_pd(val1, val2, res);
+	    _mm256_store_pd(&C[icij], res);
+         }
+
+	 for (; i < M; i++, iail += 1, icij += 1)
+            C[icij] += A[iail] * t0;
+      }
+   }
+}
+#endif /* __x86_64 */
+
+#ifdef __riscv
+static void mxu_dgemm_mkn_fma_rvv
+(
+   const int                  M,
+   const int                  N,
+   const int                  K,
+   const double               ALPHA,
+   const double               * A,
+   const int                  LDA,
+   const double               * B,
+   const int                  LDB,
+   const double               BETA,
+   double                     * C,
+   const int                  LDC
+)
+{
+   double                     t0;
+   int                        i, iail, iblj, icij, j, jal, jbj, jcj, l, x, y, t;
+   size_t                     vl;
+
+   // 64*4 = 256bit
+   vl = vsetvl_e64m1(M * N);
+   if (vl != 4) {
+      printf("Error! vl=%d, expected=%d\n", vl, 4);
+   }
+
+   for( j = 0, jbj = 0, jcj  = 0; j < N; j++, jbj += LDB, jcj += LDC )
+   {
+      HPL_dscal( M, BETA, C+jcj, 1 );
+      for( l = 0, jal = 0, iblj = jbj; l < K; l++, jal += LDA, iblj += 1 )
+      {
+         t0 = ALPHA * B[iblj];
+
+         //__m256d val2 = _mm256_broadcast_sd(&t0);
+
+         for( i = 0, iail = jal, icij = jcj; i < M; i += 4, iail += 4, icij += 4 )
+         {
+            //__m256d val1 = _mm256_load_pd(&A[iail]);
+	    //__m256d res = _mm256_load_pd(&C[icij]);
+	    //res = _mm256_fmadd_pd(val1, val2, res);
+	    vfloat64m1_t val1 = vle64_v_f64m1(&A[iail], vl);
+            vfloat64m1_t res = vle64_v_f64m1(&C[icij], vl);
+	    res = vfmacc_vf_f64m1(res, t0, val1, vl);
+	    vse64_v_f64m1(&C[icij], res, vl);
+         }
+
+	 for (; i < M; i++, iail += 1, icij += 1)
+            C[icij] += A[iail] * t0;
+
+      }
+   }
+}
+#endif
+
+static void mxu_dgemm_knm
+(
+   const int                  M,
+   const int                  N,
+   const int                  K,
+   const double               ALPHA,
+   const double               * A,
+   const int                  LDA,
+   const double               * B,
+   const int                  LDB,
+   const double               BETA,
+   double                     * C,
+   const int                  LDC
+)
+{
+   register double            t0;
+   int                        i, iail, iblj, icij, j, jal, jbj, jcj, l, x, y;
+
+   for( j = 0, jcj  = 0; j < N; j++, jcj += LDC )
+      HPL_dscal( M, BETA, C+jcj, 1 );
+
+   // from inner most, K -> N -> M
+   for ( i = 0; i < M; i++)
+   {
+      for (j = 0; j < N; j++)
+      {
+         icij = i + j * LDC;
+         for (l = 0; l < K; l++)
+         {
+            iail = i + l * LDA;
+            iblj = l + j * LDB;
+            t0 = ALPHA * B[iblj];
+            C[icij] += A[iail] * t0;
+         }
+      }
+   }
+}
+
+
+
+#endif /* HPL_CALL_MXU */
+
 #ifdef STDC_HEADERS
 void HPL_pdupdateNN
 (
@@ -197,9 +392,17 @@ void HPL_pdupdateNN
          (void) vsip_mdestroy_d( Av1 );
          (void) vsip_mdestroy_d( Uv1 );
 #else
+
+#ifdef HPL_CALL_MXU
+         mxu_dgemm( mp, nn,
+                    jb, -HPL_rone, L2ptr, ldl2, Aptr, lda, HPL_rone,
+                    Mptr( Aptr, jb, 0, lda ), lda );
+#else
          HPL_dgemm( HplColumnMajor, HplNoTrans, HplNoTrans, mp, nn,
                     jb, -HPL_rone, L2ptr, ldl2, Aptr, lda, HPL_rone,
                     Mptr( Aptr, jb, 0, lda ), lda );
+#endif
+
 #endif
          Aptr = Mptr( Aptr, 0, nn, lda ); nq0 += nn; 
 
@@ -234,9 +437,18 @@ void HPL_pdupdateNN
          (void) vsip_mdestroy_d( Av1 );
          (void) vsip_mdestroy_d( Uv1 );
 #else
+
+#ifdef HPL_CALL_MXU
+         mxu_dgemm( mp, nn,
+                    jb, -HPL_rone, L2ptr, ldl2, Aptr, lda, HPL_rone,
+                    Mptr( Aptr, jb, 0, lda ), lda );
+
+#else
          HPL_dgemm( HplColumnMajor, HplNoTrans, HplNoTrans, mp, nn,
                     jb, -HPL_rone, L2ptr, ldl2, Aptr, lda, HPL_rone,
                     Mptr( Aptr, jb, 0, lda ), lda );
+#endif
+
 #endif
       }
 #ifdef HPL_CALL_VSIPL
@@ -320,9 +532,17 @@ void HPL_pdupdateNN
             (void) vsip_mdestroy_d( Av1 );
             (void) vsip_mdestroy_d( Uv1 );
 #else
+
+#ifdef HPL_CALL_MXU
+            mxu_dgemm( mp, nn,
+                       jb, -HPL_rone, L2ptr, ldl2, Uptr, LDU, HPL_rone,
+                       Mptr( Aptr, jb, 0, lda ), lda );
+#else
             HPL_dgemm( HplColumnMajor, HplNoTrans, HplNoTrans, mp, nn,
                        jb, -HPL_rone, L2ptr, ldl2, Uptr, LDU, HPL_rone,
                        Mptr( Aptr, jb, 0, lda ), lda );
+#endif
+
 #endif
             HPL_dlacpy( jb, nn, Uptr, LDU, Aptr, lda );
          }
@@ -343,9 +563,17 @@ void HPL_pdupdateNN
             (void) vsip_mdestroy_d( Av1 );
             (void) vsip_mdestroy_d( Uv1 );
 #else
+
+#ifdef HPL_CALL_MXU
+            mxu_dgemm( mp, nn,
+                       jb, -HPL_rone, L2ptr, ldl2, Uptr, LDU, HPL_rone,
+                       Aptr, lda );
+#else
             HPL_dgemm( HplColumnMajor, HplNoTrans, HplNoTrans, mp, nn,
                        jb, -HPL_rone, L2ptr, ldl2, Uptr, LDU, HPL_rone,
                        Aptr, lda );
+#endif
+
 #endif
          }
          Uptr = Mptr( Uptr, 0, nn, LDU );
@@ -378,9 +606,17 @@ void HPL_pdupdateNN
             (void) vsip_mdestroy_d( Av1 );
             (void) vsip_mdestroy_d( Uv1 );
 #else
+
+#ifdef HPL_CALL_MXU
+            mxu_dgemm( mp, nn,
+                       jb, -HPL_rone, L2ptr, ldl2, Uptr, LDU, HPL_rone,
+                       Mptr( Aptr, jb, 0, lda ), lda );
+#else
             HPL_dgemm( HplColumnMajor, HplNoTrans, HplNoTrans, mp, nn,
                        jb, -HPL_rone, L2ptr, ldl2, Uptr, LDU, HPL_rone,
                        Mptr( Aptr, jb, 0, lda ), lda );
+#endif
+
 #endif
             HPL_dlacpy( jb, nn, Uptr, LDU, Aptr, lda );
          }
@@ -401,9 +637,17 @@ void HPL_pdupdateNN
             (void) vsip_mdestroy_d( Av1 );
             (void) vsip_mdestroy_d( Uv1 );
 #else
+
+#ifdef HPL_CALL_MXU
+            mxu_dgemm( mp, nn,
+                       jb, -HPL_rone, L2ptr, ldl2, Uptr, LDU, HPL_rone,
+                       Aptr, lda );
+#else
             HPL_dgemm( HplColumnMajor, HplNoTrans, HplNoTrans, mp, nn,
                        jb, -HPL_rone, L2ptr, ldl2, Uptr, LDU, HPL_rone,
                        Aptr, lda );
+#endif
+
 #endif
          }
       }
