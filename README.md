@@ -53,3 +53,18 @@ make install
 '''
 
 ##  OpenBlas
+
+## HPL
+'''
+
+make arch=Linux_RISCV
+
+export LD_LIBRARY_PATH=~/hpl/install/lib
+
+export PATH=~/hpl/install/bin:$PATH
+
+cd bin/Linux_RISCV/
+
+mpirun -n 4 ./xhpl
+
+'''
