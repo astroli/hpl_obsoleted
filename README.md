@@ -3,11 +3,17 @@
 '''
 
 qemu-system-riscv64 \\
--cpu rv64,v=true,vlen=256,vext_spec=v1.0 \
--machine virt -nographic -m 16G -smp 8 \
--bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.elf \
--kernel /usr/lib/u-boot/qemu-riscv64_smode/uboot.elf \
--device virtio-net-device,netdev=eth0 -netdev user,id=eth0,hostfwd=tcp::2222-:22 \
+
+-cpu rv64,v=true,vlen=256,vext_spec=v1.0 \\
+
+-machine virt -nographic -m 16G -smp 8 \\
+
+-bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.elf \\
+
+-kernel /usr/lib/u-boot/qemu-riscv64_smode/uboot.elf \\
+
+-device virtio-net-device,netdev=eth0 -netdev user,id=eth0,hostfwd=tcp::2222-:22 \\
+
 -drive file=ubuntu-22.04.1-preinstalled-server-riscv64+unmatched.img,format=raw,if=virtio
 
 '''
