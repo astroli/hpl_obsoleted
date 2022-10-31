@@ -68,6 +68,8 @@ make PREFIX=~/hpl/out install
 ## HPL
 '''
 
+tar xvf hpl-2.3.tar.gz
+
 make arch=Linux_RISCV
 
 export LD_LIBRARY_PATH=~/hpl/install/lib
