@@ -1,6 +1,6 @@
 # hpl-2.3 for RISCV
 ## Qemu
-Download Ubuntu Server Preinstalled Image [Download Ubuntu for RISC-V Platforms](https://ubuntu.com/download/risc-v)
+Ubuntu 22.04 Preinstalled Image [Download Ubuntu for RISC-V Platforms](https://ubuntu.com/download/risc-v)
 
 '''
 
