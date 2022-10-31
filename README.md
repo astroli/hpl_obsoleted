@@ -57,6 +57,8 @@ make install
 
 git clone https://github.com/xianyi/OpenBLAS.git
 
+export PATH=/opt/riscv/bin:$PATH
+
 make TARGET=RISCV64_GENERIC
 
 make PREFIX=~/hpl/out install
