@@ -2,7 +2,7 @@
 ## Qemu
 '''
 
-qemu-system-riscv64 \
+qemu-system-riscv64 \\
 -cpu rv64,v=true,vlen=256,vext_spec=v1.0 \
 -machine virt -nographic -m 16G -smp 8 \
 -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.elf \
