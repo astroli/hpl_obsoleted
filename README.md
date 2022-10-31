@@ -53,6 +53,15 @@ make install
 '''
 
 ##  OpenBlas
+'''
+
+git clone https://github.com/xianyi/OpenBLAS.git
+
+make TARGET=RISCV64_GENERIC
+
+make PREFIX=~/hpl/out install
+
+'''
 
 ## HPL
 '''
